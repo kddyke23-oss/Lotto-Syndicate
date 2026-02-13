@@ -1,0 +1,2 @@
+# Lotto-Syndicate
+Vintage Lotto
