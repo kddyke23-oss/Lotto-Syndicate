@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lotto Syndicate - Powerball Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎱</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;background:#020617;color:#f1f5f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+*{box-sizing:border-box}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader{width:32px;height:32px;border:3px solid #334155;border-top-color:#f59e0b;border-radius:50%;animation:spin .8s linear infinite}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect}=React;
+
+const fmt=d=>{if(!d)return"—";return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})};
+const fmtS=d=>{if(!d)return"—";return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})};
+const isAct=(m,dt)=>m.join&&m.join<=dt&&(!m.exit||m.exit>dt);
+const isEmpty=(dr)=>dr.w[0]===0&&dr.w[1]===0;
+const getMatches=(mn,mp,dw,dp)=>{let c=0;for(const n of mn)if(dw.includes(n))c++;return{m:c,pb:mp===dp,sc:c+(mp===dp?10:0)}};
+
+const ICONS={
+  dash:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+  mem:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  drw:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="12"/>',
+  mon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  tr:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  cv:'<polyline points="6 9 12 15 18 9"/>',
+  cu:'<polyline points="18 15 12 9 6 15"/>',
+  ref:'<path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>',
+};
+function Ic({n,s=18}){return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:ICONS[n]||''}} />}
+function Bl({number:num,isPb,isMatch,small}){
+  const sz=small?"w-7 h-7 text-[11px]":"w-9 h-9 text-sm";
+  const bg=isMatch?(isPb?"bg-amber-400 text-amber-950 ring-2 ring-amber-300":"bg-emerald-400 text-emerald-950 ring-2 ring-emerald-300"):(isPb?"bg-rose-500/20 text-rose-300 border border-rose-500/40":"bg-slate-700/60 text-slate-300 border border-slate-600/40");
+  return <span className={`${sz} rounded-full inline-flex items-center justify-center font-bold font-mono ${bg}`}>{num}</span>;
+}
+
+function App(){
+  const[data,setData]=useState(null);
+  const[error,setError]=useState(null);
+  const[tab,setTab]=useState("dash");
+  const[lastRefresh,setLastRefresh]=useState(null);
+
+  const loadData=async()=>{
+    try{
+      const res=await fetch('data.json?t='+Date.now());
+      if(!res.ok)throw new Error('Failed to load data');
+      const d=await res.json();
+      setData(d);setError(null);setLastRefresh(new Date());
+    }catch(e){setError(e.message)}
+  };
+
+  useEffect(()=>{loadData()},[]);
+  // Auto-refresh every 5 minutes
+  useEffect(()=>{const iv=setInterval(loadData,5*60*1000);return()=>clearInterval(iv)},[]);
+
+  if(error&&!data)return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="text-center"><p className="text-rose-400 text-lg mb-2">Unable to load data</p><p className="text-slate-500 text-sm">{error}</p><button onClick={loadData} className="mt-4 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700">Try Again</button></div></div>;
+  if(!data)return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="text-center"><div className="loader mx-auto mb-4"></div><p className="text-slate-400 text-sm">Loading syndicate data...</p></div></div>;
+
+  const members=data.members;
+  const periods=data.periods;
+  const draws=data.draws;
+  const actM=members.filter(m=>!m.exit);
+  const completedDraws=draws.filter(d=>!isEmpty(d));
+
+  const pStats=(()=>{
+    const sorted=[...periods].sort((a,b)=>a.s.localeCompare(b.s));
+    return sorted.map((p,i)=>{
+      const nx=sorted[i+1]?.s||"9999-12-31";const pd=draws.filter(d=>d.date>=p.s&&d.date<nx);
+      const tp=pd.reduce((s,d)=>s+(d.prize||0),0);const act=members.filter(m=>isAct(m,p.s));
+      const pm=act.length>0?tp/act.length:0;const dpp=p.w===4?12:9;
+      return{...p,idx:i,draws:pd,tp,ac:act.length,pm,actMs:act,dpp,cost:dpp*2};
+    });
+  })();
+
+  const mWin={};members.forEach(m=>{mWin[m.id]=0});pStats.forEach(ps=>{ps.actMs.forEach(m=>{mWin[m.id]=(mWin[m.id]||0)+ps.pm})});
+  const totW=draws.reduce((s,d)=>s+(d.prize||0),0);
+
+  const nav=[{k:"dash",l:"Dashboard",i:"dash"},{k:"mem",l:"Members",i:"mem"},{k:"drw",l:"Draws",i:"drw"},{k:"win",l:"Winnings",i:"mon"}];
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="fixed inset-0 opacity-[0.02]" style={{backgroundImage:"radial-gradient(circle at 1px 1px, white 1px, transparent 0)",backgroundSize:"32px 32px"}} />
+      <header className="relative z-10 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl sticky top-0">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shadow-lg shadow-amber-500/20"><span className="text-lg">🎱</span></div>
+            <div><h1 className="text-base font-bold tracking-tight text-white leading-tight">Lotto Syndicate</h1><p className="text-[10px] text-slate-500 tracking-widest uppercase">Powerball Tracker</p></div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={loadData} title="Refresh data" className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Ic n="ref" s={14}/></button>
+            <nav className="flex gap-0.5 bg-slate-900/60 rounded-xl p-0.5 border border-slate-800/50">
+              {nav.map(n=><button key={n.k} onClick={()=>setTab(n.k)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${tab===n.k?"bg-slate-800 text-white shadow-md":"text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"}`}><Ic n={n.i} s={14}/><span className="hidden md:inline">{n.l}</span></button>)}
+            </nav>
+          </div>
+        </div>
+      </header>
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5">
+        {tab==="dash"&&<Dash {...{members,actM,completedDraws,draws,totW,pStats,mWin,setTab}}/>}
+        {tab==="mem"&&<MemTab {...{members,mWin}}/>}
+        {tab==="drw"&&<DrwTab {...{draws:completedDraws,members}}/>}
+        {tab==="win"&&<WinTab {...{members,pStats,mWin}}/>}
+      </main>
+      <footer className="relative z-10 border-t border-slate-800/40 mt-8 py-4 text-center text-[10px] text-slate-600">
+        Data updated {fmt(data.lastUpdated)} · Auto-refreshes every 5 min{lastRefresh&&<span> · Last checked {lastRefresh.toLocaleTimeString()}</span>}
+      </footer>
+    </div>
+  );
+}
+
+function St({l,v,s,c}){const cs={emerald:"from-emerald-500/10 border-emerald-500/20 text-emerald-400",sky:"from-sky-500/10 border-sky-500/20 text-sky-400",amber:"from-amber-500/10 border-amber-500/20 text-amber-400",violet:"from-violet-500/10 border-violet-500/20 text-violet-400",rose:"from-rose-500/10 border-rose-500/20 text-rose-400"};
+return <div className={`bg-gradient-to-br ${cs[c]} to-transparent border rounded-2xl p-3`}><p className="text-[10px] text-slate-400 uppercase tracking-wider">{l}</p><p className={`text-xl font-bold mt-0.5 ${cs[c].split(" ").pop()}`}>{v}</p><p className="text-[10px] text-slate-500 mt-0.5">{s}</p></div>}
+
+function Dash({members,actM,completedDraws,draws,totW,pStats,mWin,setTab}){
+  const recent=useMemo(()=>[...completedDraws].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).map(dr=>{
+    const res=members.filter(m=>!m.exit||m.exit>dr.date).map(m=>{const r=getMatches(m.nums,m.pb,dr.w,dr.pb);return{...m,...r}}).filter(r=>r.sc>0).sort((a,b)=>b.sc-a.sc);
+    return{...dr,res};
+  }),[completedDraws,members]);
+  const curP=pStats.find((p,i)=>{const nx=pStats[i+1]?.s||"9999-12-31";const td=new Date().toISOString().slice(0,10);return td>=p.s&&td<nx})||pStats[pStats.length-1];
+  const top=Object.entries(mWin).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const wr=completedDraws.length>0?(draws.filter(d=>d.prize>0).length/completedDraws.length*100).toFixed(0):0;
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <St l="Active" v={actM.length} s={`of ${members.length} total`} c="emerald"/>
+        <St l="Draws" v={completedDraws.length} s={`${wr}% win rate`} c="sky"/>
+        <St l="Total Won" v={`$${totW}`} s={`${draws.filter(d=>d.prize>0).length} winning draws`} c="amber"/>
+        <St l="Current" v={curP?.l} s={`${curP?.w}wk · ${curP?.ac} members`} c="violet"/>
+        <St l="Per Member" v={`$${(totW/(actM.length||1)).toFixed(1)}`} s="avg total earnings" c="rose"/>
+      </div>
+      <div className="grid lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800/50 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3"><h2 className="text-sm font-semibold text-white flex items-center gap-2"><Ic n="drw" s={15}/> Recent Draws</h2><button onClick={()=>setTab("drw")} className="text-xs text-slate-400 hover:text-white">View all →</button></div>
+          <div className="space-y-1">{recent.map(dr=>(
+            <div key={dr.num} className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${dr.prize>0?"bg-emerald-500/5":""} border-b border-slate-800/30 last:border-0`}>
+              <div className="flex items-center gap-2"><span className="text-[10px] text-slate-500 font-mono w-6">#{dr.num}</span><span className="text-xs text-slate-400 w-14">{fmtS(dr.date)}</span><div className="flex gap-0.5">{dr.w.map((n,i)=><Bl key={i} number={n} small/>)}<Bl number={dr.pb} isPb small/></div></div>
+              <div className="flex items-center gap-2">{dr.res.length>0&&<span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">{dr.res.length} match</span>}{dr.prize>0&&<span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">${dr.prize}</span>}</div>
+            </div>
+          ))}</div>
+        </div>
+        <div className="space-y-4">
+          <div className="bg-gradient-to-br from-amber-500/10 to-rose-500/10 border border-amber-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3"><Ic n="tr" s={16}/><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Top Earners</span></div>
+            {top.map(([id,amt],i)=>{const m=members.find(x=>x.id===id);return m?<div key={id} className="flex items-center justify-between py-1.5"><div className="flex items-center gap-2"><span className={`w-5 h-5 rounded text-[10px] flex items-center justify-center font-bold ${i===0?"bg-amber-400 text-amber-950":"bg-slate-800 text-slate-400"}`}>{i+1}</span><span className="text-sm text-slate-200">{m.name.split(",")[0].split(" and ")[0]}</span></div><span className="text-sm font-bold text-amber-300 font-mono">${amt.toFixed(2)}</span></div>:null})}
+          </div>
+          <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-4">
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">Period Summary</h3>
+            <div className="space-y-1.5">{pStats.map((p,i)=><div key={i} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><span className="text-slate-500">{p.l}</span><span className={`text-[9px] px-1 py-0.5 rounded ${p.w===4?"bg-violet-500/10 text-violet-400":"bg-sky-500/10 text-sky-400"}`}>{p.w}wk</span></div><div className="flex items-center gap-1.5"><span className={`font-mono ${p.tp>0?"text-emerald-400":"text-slate-600"}`}>${p.tp}</span><span className="text-slate-600">÷{p.ac}</span></div></div>)}</div>
+          </div>
+          <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-4">
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">Our Numbers</h3>
+            <div className="space-y-1.5">{actM.map(m=><div key={m.id} className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-slate-800 text-[9px] flex items-center justify-center font-bold text-slate-500">{m.id}</span><div className="flex gap-0.5">{m.nums.map((n,i)=><Bl key={i} number={n} small/>)}<Bl number={m.pb} isPb small/></div>{m.qp&&<span className="text-[8px] text-violet-400 bg-violet-500/10 px-1 rounded">QP</span>}</div>)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MemTab({members,mWin}){return (
+  <div className="space-y-4"><h2 className="text-base font-bold">Members ({members.length})</h2>
+  <div className="grid gap-2.5">{members.map(m=><div key={m.id} className={`bg-slate-900/50 border rounded-2xl p-3 ${m.exit?"border-slate-800/30 opacity-50":"border-slate-800/50"}`}>
+    <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${m.exit?"bg-slate-800 text-slate-500":"bg-gradient-to-br from-sky-500 to-violet-500 text-white"}`}>{m.id}</div>
+    <div><div className="flex items-center gap-2 flex-wrap"><p className="font-semibold text-white text-sm">{m.name}</p>{m.exit&&<span className="text-[10px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded-full">Exited {fmtS(m.exit)}</span>}</div>
+    <div className="flex items-center gap-1.5 mt-1.5"><div className="flex gap-0.5">{m.nums.map((n,i)=><Bl key={i} number={n} small/>)}<Bl number={m.pb} isPb small/></div>{m.qp&&<span className="text-[9px] text-violet-400 bg-violet-500/10 px-1 py-0.5 rounded">QP</span>}</div></div></div>
+    <div className="text-right"><p className="text-[10px] text-slate-500">Winnings</p><p className="text-base font-bold text-emerald-400 font-mono">${(mWin[m.id]||0).toFixed(2)}</p><p className="text-[10px] text-slate-500">Since {fmtS(m.join)}</p></div></div>
+  </div>)}</div></div>
+)}
+
+function DrwTab({draws,members}){
+  const sorted=useMemo(()=>[...draws].sort((a,b)=>b.date.localeCompare(a.date)),[draws]);
+  const[exp,setExp]=useState(null);const[pg,setPg]=useState(0);const pp=20;
+  const paged=sorted.slice(pg*pp,(pg+1)*pp);const pages=Math.ceil(sorted.length/pp);
+  return (
+    <div className="space-y-4"><h2 className="text-base font-bold">Draw Results ({sorted.length})</h2>
+    <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl overflow-hidden"><table className="w-full text-xs"><thead><tr className="border-b border-slate-800/60"><th className="text-left px-3 py-2 text-slate-400 uppercase">#</th><th className="text-left px-3 py-2 text-slate-400 uppercase">Date</th><th className="text-left px-3 py-2 text-slate-400 uppercase">Numbers</th><th className="text-center px-3 py-2 text-slate-400 uppercase">Prize</th><th className="text-center px-3 py-2 text-slate-400 uppercase">Matches</th></tr></thead>
+    <tbody>{paged.map(dr=>{
+      const res=members.filter(m=>m.join<=dr.date&&(!m.exit||m.exit>dr.date)).map(m=>{const r=getMatches(m.nums,m.pb,dr.w,dr.pb);return {...m,...r}}).filter(r=>r.sc>0).sort((a,b)=>b.sc-a.sc);
+      const isE=exp===dr.num;
+      return [
+        <tr key={dr.num} className={`border-b border-slate-800/30 cursor-pointer hover:bg-slate-800/20 ${dr.prize>0?"bg-emerald-500/5":""}`} onClick={()=>setExp(isE?null:dr.num)}>
+          <td className="px-3 py-2 font-mono text-slate-400">{dr.num}</td><td className="px-3 py-2 text-slate-300">{fmt(dr.date)}</td>
+          <td className="px-3 py-2"><div className="flex gap-0.5">{dr.w.map((n,i)=><Bl key={i} number={n} small/>)}<Bl number={dr.pb} isPb small/></div></td>
+          <td className="px-3 py-2 text-center">{dr.prize>0?<span className="text-emerald-400 font-bold">${dr.prize}</span>:<span className="text-slate-600">—</span>}</td>
+          <td className="px-3 py-2 text-center"><div className="flex items-center justify-center gap-1">{res.length>0?<span className="text-amber-400">{res.length}</span>:<span className="text-slate-600">0</span>}<Ic n={isE?"cu":"cv"} s={12}/></div></td>
+        </tr>,
+        isE&&<tr key={`${dr.num}e`}><td colSpan="5" className="px-3 py-3 bg-slate-900/80">{res.length>0?<div className="space-y-1.5">{res.map(r=>
+          <div key={r.id} className="flex items-center gap-2 text-xs"><span className="w-5 h-5 rounded bg-slate-800 text-[9px] flex items-center justify-center font-bold text-slate-400">{r.id}</span><span className="text-slate-300 w-24 truncate">{r.name.split(",")[0]}</span>
+          <div className="flex gap-0.5">{r.nums.map((n,i)=><Bl key={i} number={n} isMatch={dr.w.includes(n)} small/>)}<Bl number={r.pb} isPb isMatch={r.pb===dr.pb} small/></div>
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${r.sc>=10?"bg-amber-500/20 text-amber-300":"bg-slate-800 text-slate-400"}`}>{r.m}+{r.pb?"PB":"0"}</span></div>
+        )}</div>:<p className="text-xs text-slate-500 italic">No matches</p>}</td></tr>
+      ];
+    })}</tbody></table>
+    {pages>1&&<div className="flex items-center justify-center gap-1 py-3 border-t border-slate-800/40">{Array.from({length:pages},(_,i)=><button key={i} onClick={()=>setPg(i)} className={`w-7 h-7 rounded text-xs font-medium ${pg===i?"bg-slate-700 text-white":"text-slate-400 hover:text-white hover:bg-slate-800"}`}>{i+1}</button>)}</div>}
+    </div></div>
+  );
+}
+
+function WinTab({members,pStats,mWin}){return (
+  <div className="space-y-4"><h2 className="text-base font-bold">Winnings Distribution</h2>
+  <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b border-slate-800/60">
+    <th className="text-left px-3 py-2 text-slate-400 uppercase sticky left-0 bg-slate-900/95 z-10 min-w-[100px]">Member</th>
+    {pStats.map((p,i)=><th key={i} className="text-center px-2 py-2 text-slate-400 uppercase whitespace-nowrap min-w-[65px]"><div>{p.l}</div><div className="text-[9px] font-normal text-slate-500">{fmtS(p.s)}</div><div className={`text-[8px] font-normal ${p.w===4?"text-violet-400":"text-sky-400"}`}>{p.w}wk</div></th>)}
+    <th className="text-center px-3 py-2 text-amber-400 uppercase font-bold">Total</th></tr></thead>
+  <tbody>
+    <tr className="border-b border-slate-700/60 bg-slate-800/30"><td className="px-3 py-1.5 text-[10px] font-semibold text-emerald-300 sticky left-0 bg-slate-800/50 z-10">Period Total</td>{pStats.map((p,i)=><td key={i} className="text-center px-2 py-1.5 text-[10px] font-bold text-emerald-400">${p.tp}</td>)}<td className="text-center px-3 py-1.5 text-[10px] font-bold text-amber-400">${pStats.reduce((s,p)=>s+p.tp,0)}</td></tr>
+    <tr className="border-b border-slate-700/50 bg-slate-800/20"><td className="px-3 py-1 text-[10px] text-slate-500 sticky left-0 bg-slate-800/30 z-10">Active / Per Person</td>{pStats.map((p,i)=><td key={i} className="text-center px-2 py-1 text-[10px] text-slate-500">{p.ac} / ${p.pm.toFixed(2)}</td>)}<td/></tr>
+    {members.map(m=><tr key={m.id} className={`border-b border-slate-800/30 ${m.exit?"opacity-40":""}`}><td className="px-3 py-1.5 text-slate-300 font-medium sticky left-0 bg-slate-900/95 z-10"><span className="inline-flex items-center gap-1.5"><span className="w-4 h-4 rounded text-[9px] flex items-center justify-center font-bold bg-slate-800 text-slate-400">{m.id}</span>{m.name.split(",")[0].split(" and ")[0]}</span></td>
+    {pStats.map((p,i)=>{const a=isAct(m,p.s);const sh=a?p.pm:0;return <td key={i} className="text-center px-2 py-1.5">{a?<span className={`text-[10px] font-mono ${sh>0?"text-emerald-400":"text-slate-500"}`}>{sh>0?`$${sh.toFixed(2)}`:"$0"}</span>:<span className="text-[10px] text-slate-700">—</span>}</td>})}
+    <td className="text-center px-3 py-1.5 font-bold text-amber-400 font-mono text-xs">${(mWin[m.id]||0).toFixed(2)}</td></tr>)}
+  </tbody></table></div></div></div>
+)}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+</body>
+</html>
