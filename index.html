@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 body{margin:0;background:#020617;color:#f1f5f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 *{box-sizing:border-box}
@@ -43,11 +44,11 @@ const fmtS=d=>{if(!d)return"—";return new Date(d+"T12:00:00").toLocaleDateStri
 const isAct=(m,dt)=>m.join&&m.join<=dt&&(!m.exit||m.exit>dt);
 const isEmpty=(dr)=>{const w=dr.w||dr.winning||[];return w[0]===0&&w[1]===0};
 const getW=(dr)=>dr.w||dr.winning||[];
-const getMatches=(mn,mp,dw,dp)=>{let c=0;for(const n of mn)if(dw.includes(n))c++;return{m:c,pbm:mp===dp,sc:c+(mp===dp?10:0)}};
+const getMatches=(mn,mp,dw,dp)=>{let c=0;for(const n of mn)if(dw.includes(n))c++;return{m:c,pb:mp===dp,sc:c+(mp===dp?10:0)}};
 const checkWinTrigger=(members,date,winning,pb)=>{
   const active=members.filter(m=>isAct(m,date));
   const results=active.map(m=>{const r=getMatches(m.nums,m.pb,winning,pb);return{...m,...r}});
-  const triggered=results.filter(r=>r.m>=3||r.pbm);
+  const triggered=results.filter(r=>r.m>=3||r.pb);
   return{results,triggered,isWinner:triggered.length>0};
 };
 
@@ -67,14 +68,14 @@ const ICONS={
   lock:'<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   unlock:'<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
   dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
-  gh:'<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>',
-  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.18V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0-1.18-2.82H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 2.82-1.18V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0 1.18 2.82H21a2 2 0 1 1 0 4h-.09"/>',
-  ck:'<polyline points="20 6 9 17 4 12"/>',
+  chart:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  mail:'<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+  copy:'<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 };
 function Ic({n,s=18}){return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:ICONS[n]||''}} />}
 function Bl({number:num,isPb,isMatch,small}){
   const sz=small?"w-7 h-7 text-[11px]":"w-9 h-9 text-sm";
-  const bg=isMatch?(isPb?"bg-yellow-400 text-black ring-2 ring-yellow-300 font-black":"bg-emerald-400 text-emerald-950 ring-2 ring-emerald-300"):(isPb?"bg-rose-500/20 text-rose-300 border border-rose-500/40":"bg-slate-700/60 text-slate-300 border border-slate-600/40");
+  const bg=isMatch?(isPb?"bg-amber-400 text-amber-950 ring-2 ring-amber-300":"bg-emerald-400 text-emerald-950 ring-2 ring-emerald-300"):(isPb?"bg-rose-500/20 text-rose-300 border border-rose-500/40":"bg-slate-700/60 text-slate-300 border border-slate-600/40");
   return <span className={`${sz} rounded-full inline-flex items-center justify-center font-bold font-mono ${bg}`}>{num}</span>;
 }
 
@@ -95,11 +96,6 @@ function App(){
   const[editDraws,setEditDraws]=useState(null);
   const[editPeriods,setEditPeriods]=useState(null);
   const[editPayments,setEditPayments]=useState(null);
-
-  const[ghConfig,setGhConfig]=useState(null);
-  const[showGhSetup,setShowGhSetup]=useState(false);
-  const[ghSaving,setGhSaving]=useState(false);
-  const[ghStatus,setGhStatus]=useState(null);
 
   // Embedded data fallback — used when data.json can't be fetched (Claude preview / local file)
   const EMBEDDED_DATA={"lastUpdated":"2026-02-13","members":[{"id":"A","name":"Keith and Lou Dyke","join":"2025-09-06","exit":null,"nums":[8,19,23,26,31],"pb":23,"qp":false},{"id":"B","name":"Ed and Gwen Reisner","join":"2025-09-06","exit":"2025-09-26","nums":[9,10,11,18,23],"pb":24,"qp":false},{"id":"C","name":"Wayne and Kathy","join":"2025-09-06","exit":null,"nums":[11,27,32,35,43],"pb":20,"qp":true},{"id":"D","name":"Janey and Andy Kraft","join":"2025-09-06","exit":null,"nums":[3,8,17,30,55],"pb":22,"qp":false},{"id":"E","name":"Ellen and Trevor","join":"2025-09-06","exit":null,"nums":[10,21,41,47,48],"pb":21,"qp":true},{"id":"F","name":"Kim and Al","join":"2025-09-06","exit":"2025-09-26","nums":[17,25,27,38,45],"pb":26,"qp":true},{"id":"G","name":"Julie Skarbeck, Bob Raymond","join":"2025-09-06","exit":null,"nums":[4,5,15,16,24],"pb":4,"qp":false},{"id":"H","name":"Sue Brauer","join":"2025-09-06","exit":null,"nums":[29,39,55,58,69],"pb":10,"qp":true},{"id":"I","name":"Patricia Zegarski","join":"2025-09-06","exit":null,"nums":[11,30,35,39,69],"pb":5,"qp":true},{"id":"J","name":"Georgi Diaz","join":"2025-09-27","exit":null,"nums":[25,35,47,52,63],"pb":15,"qp":true},{"id":"K","name":"Ella Detrizio","join":"2025-09-27","exit":null,"nums":[4,5,10,11,31],"pb":26,"qp":false},{"id":"L","name":"Chuck and MaryLou","join":"2025-12-20","exit":null,"nums":[6,7,9,12,22],"pb":22,"qp":false}],"periods":[{"s":"2025-09-06","l":"Period 1","w":3},{"s":"2025-09-27","l":"Period 2","w":3},{"s":"2025-10-18","l":"Period 3","w":3},{"s":"2025-11-08","l":"Period 4","w":3},{"s":"2025-11-29","l":"Period 5","w":3},{"s":"2025-12-19","l":"Period 6","w":4},{"s":"2026-01-17","l":"Period 7","w":4},{"s":"2026-02-14","l":"Period 8","w":4},{"s":"2026-03-14","l":"Period 9","w":4}],"draws":[{"num":1,"date":"2025-09-06","w":[11,23,44,61,62],"pb":17,"prize":0},{"num":2,"date":"2025-09-08","w":[26,28,41,53,64],"pb":9,"prize":0},{"num":3,"date":"2025-09-10","w":[2,24,45,53,64],"pb":5,"prize":4},{"num":4,"date":"2025-09-13","w":[28,37,42,50,53],"pb":19,"prize":0},{"num":5,"date":"2025-09-15","w":[14,15,32,42,49],"pb":1,"prize":0},{"num":6,"date":"2025-09-17","w":[7,30,50,54,62],"pb":20,"prize":4},{"num":7,"date":"2025-09-20","w":[15,29,64,66,67],"pb":4,"prize":4},{"num":8,"date":"2025-09-22","w":[3,29,42,46,59],"pb":15,"prize":0},{"num":9,"date":"2025-09-24","w":[15,31,45,49,53],"pb":19,"prize":0},{"num":10,"date":"2025-09-27","w":[10,16,32,61,66],"pb":4,"prize":4},{"num":11,"date":"2025-09-29","w":[1,3,27,60,65],"pb":16,"prize":0},{"num":12,"date":"2025-10-01","w":[8,17,22,28,55],"pb":14,"prize":7},{"num":13,"date":"2025-10-04","w":[3,7,47,67,68],"pb":2,"prize":0},{"num":14,"date":"2025-10-06","w":[28,29,32,66,67],"pb":3,"prize":0},{"num":15,"date":"2025-10-08","w":[8,10,44,48,54],"pb":14,"prize":0},{"num":16,"date":"2025-10-11","w":[13,16,18,20,27],"pb":10,"prize":4},{"num":17,"date":"2025-10-13","w":[13,14,32,52,64],"pb":12,"prize":0},{"num":18,"date":"2025-10-15","w":[10,13,28,34,47],"pb":15,"prize":4},{"num":19,"date":"2025-10-18","w":[3,11,27,40,58],"pb":10,"prize":4},{"num":20,"date":"2025-10-20","w":[32,38,66,67,69],"pb":19,"prize":0},{"num":21,"date":"2025-10-22","w":[18,37,52,54,60],"pb":12,"prize":0},{"num":22,"date":"2025-10-25","w":[2,12,22,39,67],"pb":15,"prize":4},{"num":23,"date":"2025-10-27","w":[17,39,43,51,66],"pb":20,"prize":4},{"num":24,"date":"2025-10-29","w":[4,24,49,60,65],"pb":1,"prize":0},{"num":25,"date":"2025-11-01","w":[2,26,43,44,62],"pb":22,"prize":4},{"num":26,"date":"2025-11-03","w":[3,32,40,43,57],"pb":18,"prize":0},{"num":27,"date":"2025-11-05","w":[9,17,29,61,66],"pb":26,"prize":4},{"num":28,"date":"2025-11-08","w":[3,53,60,62,68],"pb":11,"prize":0},{"num":29,"date":"2025-11-10","w":[6,28,44,48,58],"pb":23,"prize":4},{"num":30,"date":"2025-11-12","w":[29,39,43,51,65],"pb":23,"prize":4},{"num":31,"date":"2025-11-15","w":[6,7,12,47,53],"pb":21,"prize":4},{"num":32,"date":"2025-11-17","w":[7,33,50,57,66],"pb":23,"prize":4},{"num":33,"date":"2025-11-19","w":[10,31,49,51,68],"pb":19,"prize":0},{"num":34,"date":"2025-11-22","w":[28,32,36,51,69],"pb":2,"prize":0},{"num":35,"date":"2025-11-24","w":[8,16,26,30,58],"pb":14,"prize":0},{"num":36,"date":"2025-11-26","w":[7,8,15,19,28],"pb":3,"prize":0},{"num":37,"date":"2025-11-29","w":[19,22,30,32,59],"pb":1,"prize":0},{"num":38,"date":"2025-12-01","w":[5,18,26,47,59],"pb":1,"prize":0},{"num":39,"date":"2025-12-03","w":[1,14,20,46,51],"pb":26,"prize":4},{"num":40,"date":"2025-12-06","w":[13,14,26,28,44],"pb":7,"prize":0},{"num":41,"date":"2025-12-08","w":[8,32,52,56,64],"pb":23,"prize":4},{"num":42,"date":"2025-12-10","w":[10,16,29,33,69],"pb":22,"prize":4},{"num":43,"date":"2025-12-13","w":[1,28,31,57,58],"pb":16,"prize":0},{"num":44,"date":"2025-12-15","w":[23,35,59,63,68],"pb":2,"prize":0},{"num":45,"date":"2025-12-17","w":[25,33,53,62,66],"pb":17,"prize":0},{"num":46,"date":"2025-12-20","w":[4,5,28,52,69],"pb":20,"prize":4},{"num":47,"date":"2025-12-22","w":[3,18,36,41,54],"pb":7,"prize":0},{"num":48,"date":"2025-12-24","w":[4,25,31,52,59],"pb":19,"prize":0},{"num":49,"date":"2025-12-27","w":[5,20,34,39,62],"pb":1,"prize":0},{"num":50,"date":"2025-12-29","w":[11,19,34,48,53],"pb":21,"prize":4},{"num":51,"date":"2025-12-31","w":[11,18,21,24,38],"pb":26,"prize":4},{"num":52,"date":"2026-01-03","w":[18,21,40,53,60],"pb":23,"prize":4},{"num":53,"date":"2026-01-05","w":[4,18,24,51,56],"pb":14,"prize":0},{"num":54,"date":"2026-01-07","w":[15,28,57,58,63],"pb":23,"prize":4},{"num":55,"date":"2026-01-10","w":[5,19,21,28,64],"pb":14,"prize":0},{"num":56,"date":"2026-01-12","w":[5,27,45,56,59],"pb":4,"prize":4},{"num":57,"date":"2026-01-14","w":[6,24,39,43,51],"pb":2,"prize":0},{"num":58,"date":"2026-01-17","w":[5,8,27,49,57],"pb":14,"prize":0},{"num":59,"date":"2026-01-19","w":[5,28,34,37,55],"pb":17,"prize":0},{"num":60,"date":"2026-01-21","w":[11,26,27,53,55],"pb":12,"prize":0},{"num":61,"date":"2026-01-24","w":[2,16,35,61,63],"pb":5,"prize":4},{"num":62,"date":"2026-01-26","w":[21,31,51,60,63],"pb":18,"prize":0},{"num":63,"date":"2026-01-28","w":[21,35,40,46,68],"pb":11,"prize":0},{"num":64,"date":"2026-01-31","w":[2,8,14,40,63],"pb":23,"prize":4},{"num":65,"date":"2026-02-02","w":[3,8,31,60,65],"pb":4,"prize":4},{"num":66,"date":"2026-02-04","w":[27,29,30,37,58],"pb":15,"prize":4},{"num":67,"date":"2026-02-07","w":[25,36,42,51,58],"pb":6,"prize":0},{"num":68,"date":"2026-02-09","w":[6,19,22,28,48],"pb":24,"prize":0},{"num":69,"date":"2026-02-11","w":[6,20,33,40,48],"pb":5,"prize":4}],"payments":{"A":{"0":20,"1":16,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"B":{"0":20},"C":{"0":20,"1":16,"2":20,"3":18,"4":20,"5":22,"6":25,"7":25},"D":{"0":20,"1":16,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"E":{"0":20,"1":16,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"F":{"0":20},"G":{"0":20,"1":18,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"H":{"0":18,"1":18,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"I":{"0":20,"1":16,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"J":{"1":18,"2":18,"3":20,"4":20,"5":20,"6":24,"7":24,"8":24},"K":{"1":18,"2":18,"3":18,"4":18,"5":24,"6":24,"7":24},"L":{"5":22,"6":24,"7":24}}};
@@ -125,7 +121,6 @@ function App(){
   };
   useEffect(()=>{loadData()},[]);
   useEffect(()=>{if(!isAdmin){const iv=setInterval(loadData,5*60*1000);return()=>clearInterval(iv)}},[isAdmin]);
-  useEffect(()=>{try{const c=localStorage.getItem('lotto_gh');if(c)setGhConfig(JSON.parse(c))}catch{}},[]);
 
   const doLogin=async()=>{
     const ok=await checkPassword(pwInput);
@@ -196,52 +191,18 @@ function App(){
     setModal(null);
   };
 
-  const saveGhConfig=(cfg)=>{setGhConfig(cfg);try{localStorage.setItem('lotto_gh',JSON.stringify(cfg))}catch{}setShowGhSetup(false)};
-
-  const buildExportData=()=>({lastUpdated:new Date().toISOString().slice(0,10),
-    members:members.map(m=>({id:m.id,name:m.name,join:m.join,exit:m.exit,nums:m.nums,pb:m.pb,qp:m.qp||false})),
-    periods:periods,
-    draws:draws.filter(d=>!isEmpty(d)).map(d=>({num:d.num,date:d.date,w:getW(d),pb:d.pb,prize:d.prize})),
-    payments:payments});
-
   const exportData=()=>{
-    const json=JSON.stringify(buildExportData(),null,2);
+    const exp={lastUpdated:new Date().toISOString().slice(0,10),
+      members:members.map(m=>({id:m.id,name:m.name,join:m.join,exit:m.exit,nums:m.nums,pb:m.pb,qp:m.qp||false})),
+      periods:periods,
+      draws:draws.filter(d=>!isEmpty(d)).map(d=>({num:d.num,date:d.date,w:getW(d),pb:d.pb,prize:d.prize})),
+      payments:payments};
+    const json=JSON.stringify(exp,null,2);
     const blob=new Blob([json],{type:'application/json'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='data.json';a.click();URL.revokeObjectURL(url);
   };
 
-  const saveToGitHub=async()=>{
-    if(!ghConfig){setShowGhSetup(true);return}
-    setGhSaving(true);setGhStatus(null);
-    try{
-      // Get current file SHA (needed for updates)
-      const getRes=await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,{
-        headers:{'Authorization':`Bearer ${ghConfig.token}`,'Accept':'application/vnd.github.v3+json'}});
-      let sha=null;
-      if(getRes.ok){const cur=await getRes.json();sha=cur.sha}
-
-      // Build the new content
-      const content=btoa(unescape(encodeURIComponent(JSON.stringify(buildExportData(),null,2))));
-
-      // Push update
-      const body={message:`Update data ${new Date().toISOString().slice(0,10)}`,content};
-      if(sha)body.sha=sha;
-
-      const putRes=await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,{
-        method:'PUT',
-        headers:{'Authorization':`Bearer ${ghConfig.token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
-        body:JSON.stringify(body)});
-
-      if(!putRes.ok){const err=await putRes.json();throw new Error(err.message||'Failed')}
-      setGhStatus({ok:true,msg:'Saved! Members will see updates shortly.'});
-      // Reload data after short delay
-      setTimeout(loadData,3000);
-    }catch(e){
-      setGhStatus({ok:false,msg:e.message||'Failed to save'});
-    }finally{setGhSaving(false)}
-  };
-
-  const nav=[{k:"dash",l:"Dashboard",i:"dash"},{k:"mem",l:"Members",i:"mem"},{k:"drw",l:"Draws",i:"drw"},{k:"win",l:"Winnings",i:"mon"}];
+  const nav=[{k:"dash",l:"Dashboard",i:"dash"},{k:"mem",l:"Members",i:"mem"},{k:"drw",l:"Draws",i:"drw"},{k:"win",l:"Winnings",i:"mon"},{k:"charts",l:"Charts",i:"chart"}];
   if(isAdmin)nav.push({k:"pay",l:"Payments",i:"pay"});
 
   return (
@@ -255,9 +216,7 @@ function App(){
               <p className="text-[10px] text-slate-500 tracking-widest uppercase">{isAdmin?"Admin Mode":"Powerball Tracker"}</p></div>
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin&&<button onClick={saveToGitHub} disabled={ghSaving} className="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 rounded-lg text-[10px] font-medium transition-colors flex items-center gap-1 disabled:opacity-50">{ghSaving?<span>Saving...</span>:<span className="flex items-center gap-1"><Ic n="gh" s={12}/> Save to GitHub</span>}</button>}
-            {isAdmin&&<button onClick={exportData} title="Download data.json" className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Ic n="dl" s={14}/></button>}
-            {isAdmin&&<button onClick={()=>setShowGhSetup(true)} title="GitHub settings" className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Ic n="gear" s={14}/></button>}
+            {isAdmin&&<button onClick={exportData} className="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-400 rounded-lg text-[10px] font-medium transition-colors flex items-center gap-1"><Ic n="dl" s={12}/> Export</button>}
             <button onClick={()=>{if(isAdmin)doLogout();else setShowLogin(true)}} title={isAdmin?"Lock admin":"Unlock admin"} className={`p-1.5 rounded-lg transition-colors ${isAdmin?"bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30":"text-slate-500 hover:bg-slate-800 hover:text-slate-300"}`}><Ic n={isAdmin?"unlock":"lock"} s={14}/></button>
             {!isAdmin&&<button onClick={loadData} title="Refresh" className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Ic n="ref" s={14}/></button>}
             <nav className="flex gap-0.5 bg-slate-900/60 rounded-xl p-0.5 border border-slate-800/50">
@@ -267,86 +226,23 @@ function App(){
         </div>
       </header>
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-5">
-        {tab==="dash"&&<Dash {...{members,actM,completedDraws,draws,totW,pStats,mWin,setTab,isAdmin,setModal}}/>}
+        {tab==="dash"&&<Dash {...{members,actM,completedDraws,draws,totW,pStats,mWin,setTab,isAdmin,setModal,payments}}/>}
         {tab==="mem"&&<MemTab {...{members,mWin,isAdmin,onAdd:()=>setModal({t:"mem"}),onEdit:m=>setModal({t:"mem",d:m})}}/>}
         {tab==="drw"&&<DrwTab {...{draws,members,isAdmin,onAdd:()=>setModal({t:"drw"})}}/>}
         {tab==="win"&&<WinTab {...{members,pStats,mWin}}/>}
+        {tab==="charts"&&<ChartsTab {...{members,actM,completedDraws,draws,pStats,mWin}}/>}
         {tab==="pay"&&isAdmin&&<PayTab {...{members,pStats,payments,onSave:savePay}}/>}
       </main>
+      {modal?.t==="summary"&&<PeriodSummaryModal members={members} pStats={pStats} mWin={mWin} payments={payments} isAdmin={isAdmin} onClose={()=>setModal(null)}/>}
       {isAdmin&&modal?.t==="drw"&&<AddDrawWizard members={members} onClose={()=>setModal(null)} onSave={saveDraw} nextNum={draws.length+1}/>}
       {isAdmin&&modal?.t==="mem"&&<MemModal onClose={()=>setModal(null)} onSave={saveMem} member={modal.d}/>}
       {isAdmin&&modal?.t==="per"&&<AddPeriodModal periods={periods} onClose={()=>setModal(null)} onAdd={addPeriod}/>}
       {showLogin&&<LoginModal onClose={()=>{setShowLogin(false);setPwInput("");setPwError("")}} pwInput={pwInput} setPwInput={setPwInput} pwError={pwError} onLogin={doLogin}/>}
-      {showGhSetup&&<GitHubSetupModal config={ghConfig} onClose={()=>setShowGhSetup(false)} onSave={saveGhConfig}/>}
-      {ghStatus&&<div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-2xl border flex items-center gap-2 text-sm ${ghStatus.ok?"bg-emerald-950 border-emerald-500/40 text-emerald-300":"bg-rose-950 border-rose-500/40 text-rose-300"}`}>
-        <Ic n={ghStatus.ok?"ck":"x"} s={16}/>{ghStatus.msg}
-        <button onClick={()=>setGhStatus(null)} className="ml-2 opacity-60 hover:opacity-100"><Ic n="x" s={14}/></button>
-      </div>}
       <footer className="relative z-10 border-t border-slate-800/40 mt-8 py-4 text-center text-[10px] text-slate-600">
-        Data updated {fmt(data.lastUpdated)}{!isAdmin&&lastRefresh&&<span> · Last checked {lastRefresh.toLocaleTimeString()}</span>}{isAdmin&&!ghConfig&&<span> · <button onClick={()=>setShowGhSetup(true)} className="text-sky-400 hover:underline">Set up GitHub sync</button> for one-click saves</span>}{isAdmin&&ghConfig&&<span> · Connected to {ghConfig.owner}/{ghConfig.repo}</span>}
+        Data updated {fmt(data.lastUpdated)}{!isAdmin&&lastRefresh&&<span> · Last checked {lastRefresh.toLocaleTimeString()}</span>}{isAdmin&&<span> · Admin mode — remember to Export and upload data.json to GitHub</span>}
       </footer>
     </div>
   );
-}
-
-// ═══════════════════ LOGIN MODAL ═══════════════════
-// ═══════════════════ GITHUB SETUP MODAL ═══════════════════
-function GitHubSetupModal({config,onClose,onSave}){
-  const[owner,setOwner]=useState(config?.owner||'');
-  const[repo,setRepo]=useState(config?.repo||'');
-  const[token,setToken]=useState(config?.token||'');
-  const[testing,setTesting]=useState(false);
-  const[testResult,setTestResult]=useState(null);
-
-  const testConnection=async()=>{
-    if(!owner||!repo||!token)return;
-    setTesting(true);setTestResult(null);
-    try{
-      const res=await fetch(`https://api.github.com/repos/${owner}/${repo}`,{
-        headers:{'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github.v3+json'}});
-      if(res.ok){const d=await res.json();setTestResult({ok:true,msg:`Connected to ${d.full_name}`})}
-      else{const e=await res.json();setTestResult({ok:false,msg:e.message||'Connection failed'})}
-    }catch(e){setTestResult({ok:false,msg:e.message})}
-    finally{setTesting(false)}
-  };
-
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e=>e.stopPropagation()}>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center"><Ic n="gh" s={20}/></div>
-        <div><h3 className="text-base font-bold text-white">GitHub Connection</h3><p className="text-[11px] text-slate-400">Save data directly to your repo</p></div>
-      </div>
-
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="block text-[10px] text-slate-400 mb-1 uppercase">GitHub Username</label>
-            <input value={owner} onChange={e=>setOwner(e.target.value)} placeholder="your-username" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"/></div>
-          <div><label className="block text-[10px] text-slate-400 mb-1 uppercase">Repository Name</label>
-            <input value={repo} onChange={e=>setRepo(e.target.value)} placeholder="lotto-syndicate" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"/></div>
-        </div>
-        <div><label className="block text-[10px] text-slate-400 mb-1 uppercase">Personal Access Token</label>
-          <input type="password" value={token} onChange={e=>setToken(e.target.value)} placeholder="ghp_xxxxxxxxxxxx" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono"/>
-        </div>
-
-        <div className="bg-slate-800/50 rounded-lg p-3 space-y-1.5">
-          <p className="text-[10px] text-slate-300 font-semibold">How to create a token (one time):</p>
-          <p className="text-[10px] text-slate-400">1. Go to github.com → Settings → Developer settings</p>
-          <p className="text-[10px] text-slate-400">2. Personal access tokens → Tokens (classic) → Generate new token</p>
-          <p className="text-[10px] text-slate-400">3. Give it a name like "Lotto App"</p>
-          <p className="text-[10px] text-slate-400">4. Check the <span className="text-white font-mono bg-slate-700 px-1 rounded">repo</span> scope (full repo access)</p>
-          <p className="text-[10px] text-slate-400">5. Click Generate → copy the token starting with ghp_</p>
-        </div>
-
-        {testResult&&<div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${testResult.ok?"bg-emerald-500/10 text-emerald-400 border border-emerald-500/20":"bg-rose-500/10 text-rose-400 border border-rose-500/20"}`}><Ic n={testResult.ok?"ck":"x"} s={14}/>{testResult.msg}</div>}
-
-        <div className="flex gap-2 pt-1">
-          <button onClick={testConnection} disabled={!owner||!repo||!token||testing} className="px-4 py-2.5 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40">{testing?"Testing...":"Test Connection"}</button>
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800">Cancel</button>
-          <button onClick={()=>onSave({owner,repo,token})} disabled={!owner||!repo||!token} className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl text-sm text-white font-medium">Save</button>
-        </div>
-      </div>
-    </div>
-  </div>;
 }
 
 // ═══════════════════ LOGIN MODAL ═══════════════════
@@ -383,16 +279,16 @@ function AddDrawWizard({members,onClose,onSave,nextNum}){
     {step===2&&matchData&&<div className="space-y-4">
       <div className="bg-slate-800/50 rounded-xl p-3"><p className="text-[10px] text-slate-500 uppercase">Draw #{nextNum} · {fmtS(date)}</p><div className="flex gap-1 mt-1">{matchData.winning.map((n,i)=><Bl key={i} number={n}/>)}<Bl number={matchData.pbNum} isPb/></div></div>
       <div><h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Member Matches</h4>
-        <div className="space-y-1.5 max-h-64 overflow-y-auto">{matchData.results.sort((a,b)=>b.sc-a.sc).map(r=>{const isT=r.m>=3||r.pbm;return <div key={r.id} className={`flex items-center gap-2 text-xs p-2 rounded-lg ${isT?"bg-emerald-500/10 border border-emerald-500/20":"bg-slate-800/30"}`}><span className={`w-6 h-6 rounded text-[10px] flex items-center justify-center font-bold ${isT?"bg-emerald-500 text-white":"bg-slate-800 text-slate-400"}`}>{r.id}</span><span className="text-slate-300 w-28 truncate">{r.name.split(",")[0].split(" and ")[0]}</span><div className="flex gap-0.5">{r.nums.map((n,i)=><Bl key={i} number={n} isMatch={matchData.winning.includes(n)} small/>)}<Bl number={r.pb} isPb isMatch={r.pbm} small/></div><div className="ml-auto flex items-center gap-1.5">{r.m>0&&<span className="text-[10px] font-mono bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">{r.m}</span>}{r.pbm&&<span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">PB ✓</span>}{isT&&<span className="text-[10px] text-emerald-400">★</span>}</div></div>})}
+        <div className="space-y-1.5 max-h-64 overflow-y-auto">{matchData.results.sort((a,b)=>b.sc-a.sc).map(r=>{const isT=r.m>=3||r.pb;return <div key={r.id} className={`flex items-center gap-2 text-xs p-2 rounded-lg ${isT?"bg-emerald-500/10 border border-emerald-500/20":"bg-slate-800/30"}`}><span className={`w-6 h-6 rounded text-[10px] flex items-center justify-center font-bold ${isT?"bg-emerald-500 text-white":"bg-slate-800 text-slate-400"}`}>{r.id}</span><span className="text-slate-300 w-28 truncate">{r.name.split(",")[0].split(" and ")[0]}</span><div className="flex gap-0.5">{r.nums.map((n,i)=><Bl key={i} number={n} isMatch={matchData.winning.includes(n)} small/>)}<Bl number={r.pb} isPb isMatch={r.pb===matchData.pbNum} small/></div><div className="ml-auto flex items-center gap-1.5">{r.m>0&&<span className="text-[10px] font-mono bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">{r.m}</span>}{r.pb&&<span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">PB ✓</span>}{isT&&<span className="text-[10px] text-emerald-400">★</span>}</div></div>})}
         {matchData.results.filter(r=>r.sc>0).length===0&&<p className="text-xs text-slate-500 italic py-2">No matching numbers</p>}</div></div>
-      {matchData.isWinner?<div className="bg-gradient-to-r from-emerald-500/10 to-amber-500/10 border border-emerald-500/30 rounded-xl p-4"><div className="flex items-center gap-2 mb-3"><span className="text-lg">🎉</span><div><p className="text-sm font-bold text-emerald-300">Winner!</p><p className="text-[10px] text-slate-400">{matchData.triggered.map(t=>{const r=[];if(t.m>=3)r.push(`${t.m} nums`);if(t.pbm)r.push("PB");return `${t.id}(${r.join("+")})`;}).join(", ")}</p></div></div><label className="block text-[10px] text-slate-400 mb-1 uppercase">Prize Amount ($)</label><input type="number" min="0" value={prize} onChange={e=>setPrize(e.target.value)} autoFocus className="w-full bg-slate-800 border border-emerald-500/40 rounded-lg px-4 py-3 text-lg text-emerald-300 font-mono text-center" placeholder="Enter winnings..."/></div>:<div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 text-center"><p className="text-sm text-slate-400">No winning matches</p></div>}
+      {matchData.isWinner?<div className="bg-gradient-to-r from-emerald-500/10 to-amber-500/10 border border-emerald-500/30 rounded-xl p-4"><div className="flex items-center gap-2 mb-3"><span className="text-lg">🎉</span><div><p className="text-sm font-bold text-emerald-300">Winner!</p><p className="text-[10px] text-slate-400">{matchData.triggered.map(t=>{const r=[];if(t.m>=3)r.push(`${t.m} nums`);if(t.pb)r.push("PB");return `${t.id}(${r.join("+")})`;}).join(", ")}</p></div></div><label className="block text-[10px] text-slate-400 mb-1 uppercase">Prize Amount ($)</label><input type="number" min="0" value={prize} onChange={e=>setPrize(e.target.value)} autoFocus className="w-full bg-slate-800 border border-emerald-500/40 rounded-lg px-4 py-3 text-lg text-emerald-300 font-mono text-center" placeholder="Enter winnings..."/></div>:<div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 text-center"><p className="text-sm text-slate-400">No winning matches</p></div>}
       <div className="flex gap-2 pt-1"><button onClick={()=>{setStep(1);setMatchData(null)}} className="flex-1 px-4 py-2.5 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800">← Back</button><button onClick={doSave} disabled={matchData.isWinner&&(!prize||Number(prize)<=0)} className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm text-white font-medium">{matchData.isWinner?"Save with Prize":"Save Draw"}</button></div>
     </div>}
   </Modal>);
 }
 
 // ═══════════════════ DASHBOARD ═══════════════════
-function Dash({members,actM,completedDraws,draws,totW,pStats,mWin,setTab,isAdmin,setModal}){
+function Dash({members,actM,completedDraws,draws,totW,pStats,mWin,setTab,isAdmin,setModal,payments}){
   const recent=useMemo(()=>[...completedDraws].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).map(dr=>{
     const w=getW(dr);const res=members.filter(m=>!m.exit||m.exit>dr.date).map(m=>{const r=getMatches(m.nums,m.pb,w,dr.pb);return{...m,...r}}).filter(r=>r.sc>0).sort((a,b)=>b.sc-a.sc);
     return{...dr,w,res};
@@ -425,7 +321,8 @@ function Dash({members,actM,completedDraws,draws,totW,pStats,mWin,setTab,isAdmin
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white uppercase tracking-wider">Periods</h3><button onClick={()=>setTab("win")} className="text-[10px] text-slate-400 hover:text-white">Details →</button></div>
             <div className="space-y-1.5">{pStats.map((p,i)=><div key={i} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><span className="text-slate-500">{p.l}</span><span className={`text-[9px] px-1 py-0.5 rounded ${p.w===4?"bg-violet-500/10 text-violet-400":"bg-sky-500/10 text-sky-400"}`}>{p.w}wk</span></div><div className="flex items-center gap-1.5"><span className={`font-mono ${p.tp>0?"text-emerald-400":"text-slate-600"}`}>${p.tp}</span><span className="text-slate-600">÷{p.ac}</span></div></div>)}</div>
-            {isAdmin&&<button onClick={()=>setModal({t:"per"})} className="mt-3 w-full flex items-center justify-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-medium transition-colors"><Ic n="pl" s={13}/> Add New Period</button>}</div>
+            <button onClick={()=>setModal({t:"summary"})} className="mt-3 w-full flex items-center justify-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-400 px-3 py-2 rounded-xl text-xs font-medium transition-colors"><Ic n="mail" s={13}/> Period Summary</button>
+            {isAdmin&&<button onClick={()=>setModal({t:"per"})} className="mt-2 w-full flex items-center justify-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-medium transition-colors"><Ic n="pl" s={13}/> Add New Period</button>}</div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-4">
             <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">Our Numbers</h3>
             <div className="space-y-1.5">{actM.map(m=><div key={m.id} className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-slate-800 text-[9px] flex items-center justify-center font-bold text-slate-500">{m.id}</span><div className="flex gap-0.5">{m.nums.map((n,i)=><Bl key={i} number={n} small/>)}<Bl number={m.pb} isPb small/></div>{m.qp&&<span className="text-[8px] text-violet-400 bg-violet-500/10 px-1 rounded">QP</span>}</div>)}</div></div>
@@ -468,8 +365,8 @@ function DrwTab({draws,members,isAdmin,onAdd}){
           <td className="px-3 py-2 text-center">{empty?<span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded">pending</span>:<div className="flex items-center justify-center gap-1">{res.length>0?<span className="text-amber-400">{res.length}</span>:<span className="text-slate-600">0</span>}<Ic n={isE?"cu":"cv"} s={12}/></div>}</td></tr>,
         !empty&&isE&&<tr key={`${dr.num}e`}><td colSpan="5" className="px-3 py-3 bg-slate-900/80">{res.length>0?<div className="space-y-1.5">{res.map(r=>
           <div key={r.id} className="flex items-center gap-2 text-xs"><span className="w-5 h-5 rounded bg-slate-800 text-[9px] flex items-center justify-center font-bold text-slate-400">{r.id}</span><span className="text-slate-300 w-24 truncate">{r.name.split(",")[0]}</span>
-          <div className="flex gap-0.5">{r.nums.map((n,i)=><Bl key={i} number={n} isMatch={w.includes(n)} small/>)}<Bl number={r.pb} isPb isMatch={r.pbm} small/></div>
-          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${r.sc>=10?"bg-amber-500/20 text-amber-300":"bg-slate-800 text-slate-400"}`}>{r.m}+{r.pbm?"PB":"0"}</span></div>)}</div>:<p className="text-xs text-slate-500 italic">No matches</p>}</td></tr>
+          <div className="flex gap-0.5">{r.nums.map((n,i)=><Bl key={i} number={n} isMatch={w.includes(n)} small/>)}<Bl number={r.pb} isPb isMatch={r.pb===dr.pb} small/></div>
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${r.sc>=10?"bg-amber-500/20 text-amber-300":"bg-slate-800 text-slate-400"}`}>{r.m}+{r.pb?"PB":"0"}</span></div>)}</div>:<p className="text-xs text-slate-500 italic">No matches</p>}</td></tr>
       ];})}</tbody></table>
     {pages>1&&<div className="flex items-center justify-center gap-1 py-3 border-t border-slate-800/40">{Array.from({length:pages},(_,i)=><button key={i} onClick={()=>setPg(i)} className={`w-7 h-7 rounded text-xs font-medium ${pg===i?"bg-slate-700 text-white":"text-slate-400 hover:text-white hover:bg-slate-800"}`}>{i+1}</button>)}</div>}
     </div></div>);
@@ -512,6 +409,226 @@ function PayTab({members,pStats,payments,onSave}){
         <td className="text-center px-2 py-1.5 text-[10px] font-mono text-slate-300">${tp}</td><td className="text-center px-2 py-1.5 text-[10px] font-mono text-slate-400">${to}</td>
         <td className={`text-center px-2 py-1.5 text-[10px] font-mono font-bold ${bal>=0?"text-emerald-400":"text-rose-400"}`}>{bal>=0?"+":""}{bal}</td>
       </tr>})}</tbody></table></div></div></div>
+  );
+}
+
+// ═══════════════════ PERIOD SUMMARY ═══════════════════
+function PeriodSummaryModal({members,pStats,mWin,payments,isAdmin,onClose}){
+  const[copied,setCopied]=useState(false);
+  const today=new Date().toISOString().slice(0,10);
+  const curP=pStats.find((p,i)=>{const nx=pStats[i+1]?.s||"9999-12-31";return today>=p.s&&today<nx})||pStats[pStats.length-1];
+  const completedDraws=curP.draws.filter(d=>!isEmpty(d));
+  const pendingDraws=curP.draws.filter(d=>isEmpty(d));
+  const actMs=members.filter(m=>isAct(m,curP.s));
+
+  const lines=[];
+  lines.push("🎱 LOTTO SYNDICATE — " + curP.l.toUpperCase() + " UPDATE");
+  lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  lines.push("");
+  lines.push("📅 Period: " + fmt(curP.s) + " — " + curP.w + " weeks (" + curP.dpp + " draws)");
+  lines.push("✅ Draws completed: " + completedDraws.length + " of " + curP.dpp);
+  lines.push("⏳ Draws remaining: " + pendingDraws.length);
+  if(pendingDraws.length>0){
+    lines.push("   Next: " + pendingDraws.slice(0,3).map(d=>fmtS(d.date)).join(", "));
+  }
+  lines.push("");
+  lines.push("💰 PERIOD WINNINGS: $" + curP.tp);
+  if(curP.tp>0){
+    const winDraws=curP.draws.filter(d=>d.prize>0);
+    winDraws.forEach(d=>{lines.push("   Draw #" + d.num + " (" + fmtS(d.date) + "): $" + d.prize)});
+  }
+  lines.push("👥 Active members: " + curP.ac);
+  lines.push("💵 Per member earnings: $" + curP.pm.toFixed(2));
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  if(pendingDraws.length<=2){
+    const nextP=pStats.find(p=>p.s>curP.s);
+    if(nextP){
+      lines.push("");
+      lines.push("🔔 NEXT PERIOD: " + nextP.l);
+      lines.push("📅 Starts: " + fmt(nextP.s));
+      lines.push("💲 Subscription: $" + nextP.cost + " (" + nextP.dpp + " draws × $2)");
+      lines.push("");
+      lines.push("Please send your $" + nextP.cost + " subscription for " + nextP.l + ".");
+    }
+  }
+
+  if(isAdmin && Object.keys(payments).length>0){
+    const balances=[];
+    actMs.forEach(m=>{
+      let tp=0,to=0;
+      pStats.forEach((p,i)=>{if(isAct(m,p.s))to+=p.cost;tp+=(payments[m.id]?.[i]||0)});
+      const bal=tp-to;
+      const earn=mWin[m.id]||0;
+      if(bal<0) balances.push({name:m.name.split(",")[0].split(" and ")[0],bal,owed:Math.abs(bal)});
+    });
+    if(balances.length>0){
+      lines.push("");
+      lines.push("⚠️ OUTSTANDING BALANCES:");
+      balances.forEach(b=>{lines.push("   " + b.name + ": -$" + b.owed)});
+    }
+  }
+
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  lines.push("📊 ALL-TIME STATS");
+  const totalDraws=pStats.reduce((s,p)=>s+p.draws.filter(d=>!isEmpty(d)).length,0);
+  const totalWon=pStats.reduce((s,p)=>s+p.tp,0);
+  lines.push("   Total draws: " + totalDraws);
+  lines.push("   Total won: $" + totalWon);
+  lines.push("   Win rate: " + (totalDraws>0?((pStats.reduce((s,p)=>s+p.draws.filter(d=>d.prize>0).length,0)/totalDraws)*100).toFixed(0):0) + "%");
+
+  const summary=lines.join("\n");
+  const doCopy=()=>{navigator.clipboard.writeText(summary).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000)}).catch(()=>{})};
+
+  return (<Modal title="Period Summary" onClose={onClose}><div className="space-y-4">
+    <div className="flex items-center gap-2 mb-2">
+      <span className={`text-[10px] px-2 py-1 rounded-full ${pendingDraws.length<=2?"bg-amber-500/20 text-amber-300 border border-amber-500/30":"bg-sky-500/20 text-sky-300 border border-sky-500/30"}`}>
+        {pendingDraws.length<=2?"⏰ "+pendingDraws.length+" draws left — time to collect!":"📋 "+pendingDraws.length+" draws remaining"}
+      </span>
+    </div>
+    <pre className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4 text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed max-h-80 overflow-y-auto">{summary}</pre>
+    <div className="flex gap-2">
+      <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800">Close</button>
+      <button onClick={doCopy} className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${copied?"bg-emerald-600 text-white":"bg-amber-600 hover:bg-amber-500 text-white"}`}>
+        <Ic n={copied?"tr":"copy"} s={14}/>{copied?"Copied!":"Copy to Clipboard"}
+      </button>
+    </div>
+  </div></Modal>);
+}
+
+// ═══════════════════ CHARTS TAB ═══════════════════
+function ChartsTab({members,actM,completedDraws,draws,pStats,mWin}){
+  const barRef=React.useRef(null);
+  const lineRef=React.useRef(null);
+  const barChart=React.useRef(null);
+  const lineChart=React.useRef(null);
+
+  useEffect(()=>{
+    if(!barRef.current||typeof Chart==='undefined')return;
+    if(barChart.current)barChart.current.destroy();
+    const activeMembers=members.filter(m=>!m.exit).sort((a,b)=>(mWin[b.id]||0)-(mWin[a.id]||0));
+    const labels=activeMembers.map(m=>m.id+" — "+m.name.split(",")[0].split(" and ")[0]);
+    const winData=activeMembers.map(m=>Number((mWin[m.id]||0).toFixed(2)));
+    const winCounts=activeMembers.map(m=>{
+      let count=0;
+      completedDraws.forEach(dr=>{
+        const w=getW(dr);const r=getMatches(m.nums,m.pb,w,dr.pb);
+        if(r.m>=3||r.pb)count++;
+      });
+      return count;
+    });
+    const maxWin=Math.max(...winData,1);
+    barChart.current=new Chart(barRef.current,{
+      type:'bar',
+      data:{
+        labels,
+        datasets:[{
+          label:'Total Winnings ($)',
+          data:winData,
+          backgroundColor:winData.map(w=>w>0?'rgba(52,211,153,0.6)':'rgba(100,116,139,0.3)'),
+          borderColor:winData.map(w=>w>0?'rgba(52,211,153,0.9)':'rgba(100,116,139,0.5)'),
+          borderWidth:1,
+          borderRadius:6,
+          barPercentage:0.7
+        },{
+          label:'Winning Draws',
+          data:winCounts,
+          backgroundColor:'rgba(251,191,36,0.4)',
+          borderColor:'rgba(251,191,36,0.8)',
+          borderWidth:1,
+          borderRadius:6,
+          barPercentage:0.7
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:11},padding:15}},
+          tooltip:{backgroundColor:'#1e293b',titleColor:'#f1f5f9',bodyColor:'#cbd5e1',borderColor:'#334155',borderWidth:1}},
+        scales:{
+          x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(51,65,85,0.3)'}},
+          y:{beginAtZero:true,ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+v},grid:{color:'rgba(51,65,85,0.3)'}}
+        }
+      }
+    });
+  },[members,mWin,completedDraws]);
+
+  useEffect(()=>{
+    if(!lineRef.current||typeof Chart==='undefined')return;
+    if(lineChart.current)lineChart.current.destroy();
+    const sorted=[...completedDraws].sort((a,b)=>a.date.localeCompare(b.date));
+    if(sorted.length===0)return;
+    let cumInvested=0,cumWon=0;
+    const labels=[];const investedData=[];const wonData=[];
+    sorted.forEach(dr=>{
+      const active=members.filter(m=>isAct(m,dr.date)).length;
+      cumInvested+=active*2;
+      cumWon+=(dr.prize||0);
+      labels.push(fmtS(dr.date));
+      investedData.push(cumInvested);
+      wonData.push(cumWon);
+    });
+    lineChart.current=new Chart(lineRef.current,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[{
+          label:'Total Invested',
+          data:investedData,
+          borderColor:'rgba(244,63,94,0.8)',
+          backgroundColor:'rgba(244,63,94,0.1)',
+          fill:true,tension:0.3,pointRadius:0,pointHitRadius:8,borderWidth:2
+        },{
+          label:'Total Won',
+          data:wonData,
+          borderColor:'rgba(52,211,153,0.8)',
+          backgroundColor:'rgba(52,211,153,0.1)',
+          fill:true,tension:0.3,pointRadius:0,pointHitRadius:8,borderWidth:2
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:11},padding:15}},
+          tooltip:{backgroundColor:'#1e293b',titleColor:'#f1f5f9',bodyColor:'#cbd5e1',borderColor:'#334155',borderWidth:1,
+            callbacks:{label:ctx=>ctx.dataset.label+': $'+ctx.parsed.y}}},
+        scales:{
+          x:{ticks:{color:'#64748b',font:{size:9},maxTicksLimit:15},grid:{color:'rgba(51,65,85,0.2)'}},
+          y:{beginAtZero:true,ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+v},grid:{color:'rgba(51,65,85,0.3)'}}
+        }
+      }
+    });
+  },[completedDraws,members]);
+
+  useEffect(()=>{return()=>{if(barChart.current)barChart.current.destroy();if(lineChart.current)lineChart.current.destroy()}},[]);
+
+  const totalInvested=completedDraws.reduce((s,dr)=>{const a=members.filter(m=>isAct(m,dr.date)).length;return s+a*2},0);
+  const totalWon=completedDraws.reduce((s,d)=>s+(d.prize||0),0);
+  const roi=totalInvested>0?((totalWon/totalInvested)*100).toFixed(1):0;
+
+  return (
+    <div className="space-y-5">
+      <h2 className="text-base font-bold flex items-center gap-2"><Ic n="chart" s={18}/> Charts & Statistics</h2>
+      <div className="grid grid-cols-3 gap-3">
+        <St l="Total Invested" v={`$${totalInvested}`} s={`${completedDraws.length} draws × ${actM.length} members`} c="rose"/>
+        <St l="Total Won" v={`$${totalWon}`} s={`${completedDraws.filter(d=>d.prize>0).length} winning draws`} c="emerald"/>
+        <St l="Return" v={`${roi}%`} s={totalWon>totalInvested?"In profit!":"Keep playing!"} c="amber"/>
+      </div>
+      <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><Ic n="tr" s={15}/> Member Winnings & Win Count</h3>
+        <div style={{height:"320px"}}><canvas ref={barRef}></canvas></div>
+      </div>
+      <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><Ic n="mon" s={15}/> Cumulative Investment vs Winnings</h3>
+        <div style={{height:"320px"}}><canvas ref={lineRef}></canvas></div>
+        <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-slate-500">
+          <span>Gap = ${totalInvested-totalWon} net cost</span>
+          <span>·</span>
+          <span>Over {completedDraws.length} draws since {fmt(completedDraws.length>0?[...completedDraws].sort((a,b)=>a.date.localeCompare(b.date))[0].date:"")}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -559,3 +676,4 @@ ReactDOM.render(<App/>, document.getElementById('root'));
 </script>
 </body>
 </html>
+
