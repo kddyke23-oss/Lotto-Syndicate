@@ -480,6 +480,7 @@ function PeriodSummaryModal({members,pStats,mWin,payments,isAdmin,onClose}){
   const today=new Date().toISOString().slice(0,10);
   const curP=pStats.find((p,i)=>{const nx=pStats[i+1]?.s||"9999-12-31";return today>=p.s&&today<nx})||pStats[pStats.length-1];
   const completedDraws=curP.draws.filter(d=>!isEmpty(d));
+  const remainingCount=curP.dpp-completedDraws.length;
   const pendingDraws=curP.draws.filter(d=>isEmpty(d));
   const actMs=members.filter(m=>isAct(m,curP.s));
 
@@ -489,7 +490,7 @@ function PeriodSummaryModal({members,pStats,mWin,payments,isAdmin,onClose}){
   lines.push("");
   lines.push("📅 Period: " + fmt(curP.s) + " — " + curP.w + " weeks (" + curP.dpp + " draws)");
   lines.push("✅ Draws completed: " + completedDraws.length + " of " + curP.dpp);
-  lines.push("⏳ Draws remaining: " + pendingDraws.length);
+  lines.push("⏳ Draws remaining: " + remainingCount);
   if(pendingDraws.length>0){
     lines.push("   Next: " + pendingDraws.slice(0,3).map(d=>fmtS(d.date)).join(", "));
   }
@@ -504,7 +505,7 @@ function PeriodSummaryModal({members,pStats,mWin,payments,isAdmin,onClose}){
   lines.push("");
   lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-  if(pendingDraws.length<=2){
+  if(remainingCount<=2){
     const nextP=pStats.find(p=>p.s>curP.s);
     if(nextP){
       lines.push("");
@@ -546,8 +547,8 @@ function PeriodSummaryModal({members,pStats,mWin,payments,isAdmin,onClose}){
 
   return (<Modal title="Period Summary" onClose={onClose}><div className="space-y-4">
     <div className="flex items-center gap-2 mb-2">
-      <span className={`text-[10px] px-2 py-1 rounded-full ${pendingDraws.length<=2?"bg-amber-500/20 text-amber-300 border border-amber-500/30":"bg-sky-500/20 text-sky-300 border border-sky-500/30"}`}>
-        {pendingDraws.length<=2?"⏰ "+pendingDraws.length+" draws left — time to collect!":"📋 "+pendingDraws.length+" draws remaining"}
+      <span className={`text-[10px] px-2 py-1 rounded-full ${remainingCount<=2?"bg-amber-500/20 text-amber-300 border border-amber-500/30":"bg-sky-500/20 text-sky-300 border border-sky-500/30"}`}>
+        {remainingCount<=2?"⏰ "+remainingCount+" draws left — time to collect!":"📋 "+remainingCount+" draws remaining"}
       </span>
     </div>
     <pre className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4 text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed max-h-80 overflow-y-auto">{summary}</pre>
