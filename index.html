@@ -71,6 +71,9 @@ const ICONS={
   chart:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
   mail:'<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
   copy:'<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  gh:'<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>',
 };
 function Ic({n,s=18}){return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:ICONS[n]||''}} />}
 function Bl({number:num,isPb,isMatch,small}){
@@ -90,6 +93,17 @@ function App(){
   const[pwError,setPwError]=useState("");
   const[modal,setModal]=useState(null);
   const[lastRefresh,setLastRefresh]=useState(null);
+
+  // GitHub connection settings (stored in localStorage)
+  const[ghSettings,setGhSettings]=useState({user:'',repo:'',token:''});
+  const[ghStatus,setGhStatus]=useState(null); // null | 'saving' | 'saved' | 'error'
+  const[showGhSettings,setShowGhSettings]=useState(false);
+
+  // Load GitHub settings from localStorage on mount
+  useEffect(()=>{
+    try{const s=localStorage.getItem('lotto_gh');if(s)setGhSettings(JSON.parse(s))}catch(e){}
+  },[]);
+  const saveGhSettings=(s)=>{setGhSettings(s);try{localStorage.setItem('lotto_gh',JSON.stringify(s))}catch(e){}};
 
   // Admin edits stored in memory (exported to JSON when done)
   const[editMembers,setEditMembers]=useState(null);
@@ -202,6 +216,28 @@ function App(){
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='data.json';a.click();URL.revokeObjectURL(url);
   };
 
+  const saveToGitHub=async()=>{
+    if(!ghSettings.user||!ghSettings.repo||!ghSettings.token){setShowGhSettings(true);return}
+    setGhStatus('saving');
+    try{
+      const exp={lastUpdated:new Date().toISOString().slice(0,10),
+        members:members.map(m=>({id:m.id,name:m.name,join:m.join,exit:m.exit,nums:m.nums,pb:m.pb,qp:m.qp||false})),
+        periods:periods,
+        draws:draws.filter(d=>!isEmpty(d)).map(d=>({num:d.num,date:d.date,w:getW(d),pb:d.pb,prize:d.prize})),
+        payments:payments};
+      const json=JSON.stringify(exp,null,2);
+      const apiUrl=`https://api.github.com/repos/${ghSettings.user}/${ghSettings.repo}/contents/data.json`;
+      // Get current file SHA (needed for update)
+      const getRes=await fetch(apiUrl,{headers:{'Authorization':`token ${ghSettings.token}`,'Accept':'application/vnd.github.v3+json'}});
+      const sha=getRes.ok?(await getRes.json()).sha:undefined;
+      // Create or update file
+      const putRes=await fetch(apiUrl,{method:'PUT',headers:{'Authorization':`token ${ghSettings.token}`,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+        body:JSON.stringify({message:`Update data.json — ${new Date().toLocaleDateString()}`,content:btoa(unescape(encodeURIComponent(json))),sha:sha,branch:'main'})});
+      if(!putRes.ok)throw new Error(`GitHub API: ${putRes.status}`);
+      setGhStatus('saved');setTimeout(()=>setGhStatus(null),3000);
+    }catch(e){console.error('GitHub save failed:',e);setGhStatus('error');setTimeout(()=>setGhStatus(null),4000)}
+  };
+
   const nav=[{k:"dash",l:"Dashboard",i:"dash"},{k:"mem",l:"Members",i:"mem"},{k:"drw",l:"Draws",i:"drw"},{k:"win",l:"Winnings",i:"mon"},{k:"charts",l:"Charts",i:"chart"}];
   if(isAdmin)nav.push({k:"pay",l:"Payments",i:"pay"});
 
@@ -216,6 +252,8 @@ function App(){
               <p className="text-[10px] text-slate-500 tracking-widest uppercase">{isAdmin?"Admin Mode":"Powerball Tracker"}</p></div>
           </div>
           <div className="flex items-center gap-2">
+            {isAdmin&&<button onClick={saveToGitHub} disabled={ghStatus==='saving'} className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors flex items-center gap-1 border ${ghStatus==='saved'?"bg-emerald-600/20 border-emerald-500/30 text-emerald-400":ghStatus==='error'?"bg-rose-600/20 border-rose-500/30 text-rose-400":ghStatus==='saving'?"bg-amber-600/20 border-amber-500/30 text-amber-400 opacity-70":"bg-emerald-600/20 hover:bg-emerald-600/30 border-emerald-500/30 text-emerald-400"}`}>{ghStatus==='saving'?<><span className="loader" style={{width:10,height:10,borderWidth:2}}/> Saving...</>:ghStatus==='saved'?<><Ic n="check" s={12}/> Saved!</>:ghStatus==='error'?<><Ic n="x" s={12}/> Failed</>:<><Ic n="gh" s={12}/> Save to GitHub</>}</button>}
+            {isAdmin&&<button onClick={()=>setShowGhSettings(true)} title="GitHub settings" className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Ic n="gear" s={14}/></button>}
             {isAdmin&&<button onClick={exportData} className="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-400 rounded-lg text-[10px] font-medium transition-colors flex items-center gap-1"><Ic n="dl" s={12}/> Export</button>}
             <button onClick={()=>{if(isAdmin)doLogout();else setShowLogin(true)}} title={isAdmin?"Lock admin":"Unlock admin"} className={`p-1.5 rounded-lg transition-colors ${isAdmin?"bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30":"text-slate-500 hover:bg-slate-800 hover:text-slate-300"}`}><Ic n={isAdmin?"unlock":"lock"} s={14}/></button>
             {!isAdmin&&<button onClick={loadData} title="Refresh" className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Ic n="ref" s={14}/></button>}
@@ -237,9 +275,10 @@ function App(){
       {isAdmin&&modal?.t==="drw"&&<AddDrawWizard members={members} onClose={()=>setModal(null)} onSave={saveDraw} nextNum={draws.length+1}/>}
       {isAdmin&&modal?.t==="mem"&&<MemModal onClose={()=>setModal(null)} onSave={saveMem} member={modal.d}/>}
       {isAdmin&&modal?.t==="per"&&<AddPeriodModal periods={periods} onClose={()=>setModal(null)} onAdd={addPeriod}/>}
+      {showGhSettings&&<GhSettingsModal settings={ghSettings} onSave={(s)=>{saveGhSettings(s);setShowGhSettings(false)}} onClose={()=>setShowGhSettings(false)}/>}
       {showLogin&&<LoginModal onClose={()=>{setShowLogin(false);setPwInput("");setPwError("")}} pwInput={pwInput} setPwInput={setPwInput} pwError={pwError} onLogin={doLogin}/>}
       <footer className="relative z-10 border-t border-slate-800/40 mt-8 py-4 text-center text-[10px] text-slate-600">
-        Data updated {fmt(data.lastUpdated)}{!isAdmin&&lastRefresh&&<span> · Last checked {lastRefresh.toLocaleTimeString()}</span>}{isAdmin&&<span> · Admin mode — remember to Export and upload data.json to GitHub</span>}
+        Data updated {fmt(data.lastUpdated)}{!isAdmin&&lastRefresh&&<span> · Last checked {lastRefresh.toLocaleTimeString()}</span>}{isAdmin&&<span> · Admin mode{ghSettings.token?" — Save to GitHub when done":" — set up GitHub connection (⚙) to auto-save"}</span>}
       </footer>
     </div>
   );
@@ -256,6 +295,29 @@ function LoginModal({onClose,pwInput,setPwInput,pwError,onLogin}){
       <div className="flex gap-2 mt-3">
         <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800">Cancel</button>
         <button onClick={onLogin} className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 rounded-xl text-sm text-white font-medium">Unlock</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ═══════════════════ GITHUB SETTINGS MODAL ═══════════════════
+function GhSettingsModal({settings,onSave,onClose}){
+  const[f,setF]=useState({...settings});
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={e=>e.stopPropagation()}>
+      <div className="flex items-center gap-3 mb-5"><div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center"><Ic n="gh" s={20}/></div><div><h3 className="text-base font-bold text-white">GitHub Connection</h3><p className="text-[11px] text-slate-400">Save data.json directly to your repo</p></div></div>
+      <div className="space-y-3">
+        <div><label className="block text-[10px] text-slate-400 mb-1 uppercase">GitHub Username</label>
+        <input type="text" value={f.user} onChange={e=>setF(p=>({...p,user:e.target.value}))} placeholder="e.g. kddyke23-oss" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-sky-500/50 focus:outline-none"/></div>
+        <div><label className="block text-[10px] text-slate-400 mb-1 uppercase">Repository Name</label>
+        <input type="text" value={f.repo} onChange={e=>setF(p=>({...p,repo:e.target.value}))} placeholder="e.g. Lotto-Syndicate" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-sky-500/50 focus:outline-none"/></div>
+        <div><label className="block text-[10px] text-slate-400 mb-1 uppercase">Personal Access Token</label>
+        <input type="password" value={f.token} onChange={e=>setF(p=>({...p,token:e.target.value}))} placeholder="ghp_..." className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:ring-2 focus:ring-sky-500/50 focus:outline-none"/>
+        <p className="text-[9px] text-slate-500 mt-1">Needs "repo" scope. Create at GitHub Settings &gt; Developer settings &gt; Tokens (classic)</p></div>
+      </div>
+      <div className="flex gap-2 mt-4">
+        <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800">Cancel</button>
+        <button onClick={()=>onSave(f)} disabled={!f.user||!f.repo||!f.token} className="flex-1 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm text-white font-medium">Save</button>
       </div>
     </div>
   </div>;
@@ -676,4 +738,3 @@ ReactDOM.render(<App/>, document.getElementById('root'));
 </script>
 </body>
 </html>
-
