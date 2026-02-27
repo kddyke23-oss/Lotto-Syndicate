@@ -248,7 +248,7 @@ function App(){
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shadow-lg shadow-amber-500/20"><span className="text-lg">🎱</span></div>
-            <div><h1 className="text-base font-bold tracking-tight text-white leading-tight">Lotto Syndicate <span className="text-[9px] font-normal text-slate-600 ml-1">v26.2.26.1</span></h1>
+            <div><h1 className="text-base font-bold tracking-tight text-white leading-tight">Lotto Syndicate <span className="text-[9px] font-normal text-slate-600 ml-1">v26.2.26.2</span></h1>
               <p className="text-[10px] text-slate-500 tracking-widest uppercase">{isAdmin?"Admin Mode":"Powerball Tracker"}</p></div>
           </div>
           <div className="flex items-center gap-2">
@@ -577,6 +577,7 @@ function ChartsTab({members,actM,completedDraws,draws,pStats,mWin}){
     const winCounts=activeMembers.map(m=>{
       let count=0;
       completedDraws.forEach(dr=>{
+        if(!isAct(m,dr.date))return;
         const w=getW(dr);const r=getMatches(m.nums,m.pb,w,dr.pb);
         if(r.m>=3||r.pb)count++;
       });
@@ -596,7 +597,7 @@ function ChartsTab({members,actM,completedDraws,draws,pStats,mWin}){
           borderRadius:6,
           barPercentage:0.7
         },{
-          label:'Winning Draws',
+          label:'# of times this ticket won',
           data:winCounts,
           backgroundColor:'rgba(251,191,36,0.4)',
           borderColor:'rgba(251,191,36,0.8)',
